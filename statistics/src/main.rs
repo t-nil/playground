@@ -11,7 +11,6 @@ use crossterm::{
 };
 use itertools::Itertools;
 use ratatui::{
-    backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout},
     style::{Color, Style},
     symbols,
@@ -19,7 +18,18 @@ use ratatui::{
     widgets::{Axis, Block, Chart, Dataset, GraphType},
     Terminal,
 };
-use statistics::math;
+
+#[allow(unused)]
+use ratatui::backend::{CrosstermBackend, TermionBackend, TermwizBackend};
+#[warn(unused)]
+use statistics::math::{self, Num, Point};
+
+type BackendImpl = TermionBackend<Stdout>;
+
+/// input poll takes duration, currently using fromMillis.
+/// therefor convert FPS to tickrate
+const FPS: u16 = 15;
+const TICKRATE: u16 = 1000 / FPS;
 
 /// This is a bare minimum example. There are many approaches to running an application loop, so
 /// this is not meant to be prescriptive. It is only meant to demonstrate the basic setup and
@@ -38,7 +48,7 @@ fn main() -> Result<()> {
 
 /// Render the application. This is where you would draw the application UI. This example just
 /// draws a greeting.
-fn render_app(frame: &mut ratatui::Frame<CrosstermBackend<Stdout>>) {
+fn render_app(frame: &mut ratatui::Frame<BackendImpl>) {
     //let greeting = Paragraph::new("Hello World! (press 'q' to quit)");
     //frame.render_widget(greeting, frame.size());
     let size = frame.size();
@@ -46,24 +56,17 @@ fn render_app(frame: &mut ratatui::Frame<CrosstermBackend<Stdout>>) {
         .direction(Direction::Vertical)
         .constraints([Constraint::Ratio(1, 2), Constraint::Ratio(1, 2)].as_ref())
         .split(size);
-    /*.into_iter()
-    .map(|f| statistics::math::plot(f, -10.0, 10.0, 0.2).collect_vec())
-    .collect_vec()*/
-    /*let old = (
-        statistics::math::plot(|x| x * x, -10.0, 10.0, 0.2).collect_vec(),
-        statistics::math::plot(|x| (x - 3.0) * (x - 3.0), -10.0, 10.0, 0.2).collect_vec(),
-        statistics::math::plot(f64::sqrt, -10.0, 10.0, 0.2).collect_vec(),
-    );*/
 
-    let (min, max, step): (f64, f64, f64) = (-10.0, 10.0, 0.1);
-    let (x_axis, y_axis) = ([(min, 0.0), (max, 0.0)], &[(0.0, min), (0.0, max)]);
-    let fns: Vec<(&str, Box<dyn Fn(f64) -> f64>)> = vec![
+    let (min, max, step): (Num, Num, Num) = (-10.0, 10.0, 0.1);
+    let (x_axis, y_axis) = (&[(min, 0.0), (max, 0.0)], &[(0.0, min), (0.0, max)]);
+    let fns: Vec<(&str, Box<math::Func>)> = vec![
         ("x²", Box::new(|x| x * x)),
         ("x² moved on x axis", Box::new(|x| (x - 3.0) * (x - 3.0))),
-        ("classical square root", Box::new(f64::sqrt)),
+        ("classical square root", Box::new(Num::sqrt)),
     ];
+    // TODO bei ratatui beschweren, wie NaNs gerendert werden (see sqrt(-x))
 
-    let plots: Vec<(&str, Vec<(f64, f64)>)> = fns
+    let plots: Vec<(&str, Vec<Point>)> = fns
         .iter()
         .map(|(name, f)| (*name, math::plot(f, min, max, step).collect()))
         .collect_vec();
@@ -82,14 +85,14 @@ fn render_app(frame: &mut ratatui::Frame<CrosstermBackend<Stdout>>) {
                 .data(points)
         })
         .collect_vec(); //FIXME
-    let chart = make_chart(datasets, &x_axis, &y_axis);
+    let chart = make_chart(datasets, x_axis, y_axis);
     frame.render_widget(chart, size);
 }
 
 fn make_chart<'a>(
     mut charts: Vec<Dataset<'a>>,
-    x_axis: &'a [(f64, f64); 2],
-    y_axis: &'a [(f64, f64); 2],
+    x_axis: &'a [Point; 2],
+    y_axis: &'a [Point; 2],
 ) -> Chart<'a> {
     // IMPORTANT Dot seems to use `.` for drawing, Braille the UTF8 braille symbols (which can represent alot of dot configurations per symbol)
     // Block == fully filled symbol, Bar == "smaller" Block with emptiness at the top
@@ -151,16 +154,16 @@ fn make_chart<'a>(
 /// Setup the terminal. This is where you would enable raw mode, enter the alternate screen, and
 /// hide the cursor. This example does not handle errors. A more robust application would probably
 /// want to handle errors and ensure that the terminal is restored to a sane state before exiting.
-fn setup_terminal() -> Result<Terminal<CrosstermBackend<Stdout>>> {
+fn setup_terminal() -> Result<Terminal<BackendImpl>> {
     let mut stdout = io::stdout();
     enable_raw_mode().context("failed to enable raw mode")?;
     execute!(stdout, EnterAlternateScreen).context("unable to enter alternate screen")?;
-    Terminal::new(CrosstermBackend::new(stdout)).context("creating terminal failed")
+    Terminal::new(BackendImpl::new(stdout)).context("creating terminal failed")
 }
 
 /// Restore the terminal. This is where you disable raw mode, leave the alternate screen, and show
 /// the cursor.
-fn restore_terminal(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<()> {
+fn restore_terminal(terminal: &mut Terminal<BackendImpl>) -> Result<()> {
     disable_raw_mode().context("failed to disable raw mode")?;
     execute!(terminal.backend_mut(), LeaveAlternateScreen)
         .context("unable to switch to main screen")?;
@@ -171,7 +174,7 @@ fn restore_terminal(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result
 /// state. This example exits when the user presses 'q'. Other styles of application loops are
 /// possible, for example, you could have multiple application states and switch between them based
 /// on events, or you could have a single application state and update it based on events.
-fn run(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<()> {
+fn run(terminal: &mut Terminal<BackendImpl>) -> Result<()> {
     loop {
         terminal.draw(crate::render_app)?;
         if should_quit()? {
@@ -186,7 +189,7 @@ fn run(terminal: &mut Terminal<CrosstermBackend<Stdout>>) -> Result<()> {
 /// events. There is a 250ms timeout on the event poll so that the application can exit in a timely
 /// manner, and to ensure that the terminal is rendered at least once every 250ms.
 fn should_quit() -> Result<bool> {
-    if event::poll(Duration::from_millis(250)).context("event poll failed")? {
+    if event::poll(Duration::from_millis(TICKRATE.into())).context("event poll failed")? {
         if let Event::Key(key) = event::read().context("event read failed")? {
             return Ok(KeyCode::Char('q') == key.code);
         }
