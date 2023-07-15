@@ -48,7 +48,7 @@ static DATASETS: Mutex<LazyCell<Vec<(Plot<Point>, Dataset)>>> = Mutex::new(LazyC
     ];
     // TODO bei ratatui beschweren, wie NaNs gerendert werden (see sqrt(-x))
 
-    let mut datasets = fns
+    let datasets = fns
         .iter()
         .map(|(name, f)| {
             let plot = math::plot(f, MIN, MAX, STEP).collect_vec();
@@ -66,10 +66,6 @@ static DATASETS: Mutex<LazyCell<Vec<(Plot<Point>, Dataset)>>> = Mutex::new(LazyC
             )
         })
         .collect_vec();
-    datasets
-        .iter_mut()
-        //.for_each(|tuple| tuple.1 = tuple.1.data(&tuple.0 .1));
-        .for_each(|((_, plot), dataset)| *dataset = dataset.clone().data(plot));
     datasets
 }));
 
@@ -103,16 +99,17 @@ fn render_app(frame: &mut ratatui::Frame<BackendImpl>) {
         .split(size);
 
     let (x_axis, y_axis) = (&[(MIN, 0.0), (MAX, 0.0)], &[(0.0, MIN), (0.0, MAX)]);
+
+    let dataset = DATASETS.lock().unwrap();
     let chart = make_chart(
-        DATASETS
-            .lock()
-            .unwrap()
+        dataset
             .iter()
-            .map(|((_, _), d)| d.clone())
+            .map(|((_, plot), dataset)| dataset.clone().data(plot))
             .collect_vec(),
         x_axis,
         y_axis,
     );
+
     frame.render_widget(chart, size);
 }
 
