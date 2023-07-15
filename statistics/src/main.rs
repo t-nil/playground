@@ -1,9 +1,5 @@
-#![feature(lazy_cell)]
-
 use std::{
-    cell::LazyCell,
     io::{self, Stdout},
-    sync::Mutex,
     time::Duration,
 };
 
@@ -25,7 +21,7 @@ use ratatui::{
 
 #[allow(unused)]
 use ratatui::backend::{CrosstermBackend, TermionBackend, TermwizBackend};
-use statistics::math::Plot;
+use statistics::math::{Func, Plot};
 #[warn(unused)]
 use statistics::math::{self, Num, Point};
 
@@ -89,14 +85,14 @@ fn main() -> Result<()> {
 
 /// Render the application. This is where you would draw the application UI. This example just
 /// draws a greeting.
-fn render_app(frame: &mut ratatui::Frame<BackendImpl>) {
+fn render_default_app(frame: &mut ratatui::Frame<BackendImpl>) {
     //let greeting = Paragraph::new("Hello World! (press 'q' to quit)");
     //frame.render_widget(greeting, frame.size());
     let size = frame.size();
-    let _chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Ratio(1, 2), Constraint::Ratio(1, 2)].as_ref())
-        .split(size);
+    /*let _chunks = Layout::default()
+    .direction(Direction::Vertical)
+    .constraints([Constraint::Ratio(1, 2), Constraint::Ratio(1, 2)].as_ref())
+    .split(size);*/
 
     let (x_axis, y_axis) = (&[(MIN, 0.0), (MAX, 0.0)], &[(0.0, MIN), (0.0, MAX)]);
 
@@ -200,7 +196,7 @@ fn restore_terminal(terminal: &mut Terminal<BackendImpl>) -> Result<()> {
 /// on events, or you could have a single application state and update it based on events.
 fn run(terminal: &mut Terminal<BackendImpl>) -> Result<()> {
     loop {
-        terminal.draw(crate::render_app)?;
+        terminal.draw(crate::render_default_app)?;
         if should_quit()? {
             break;
         }
