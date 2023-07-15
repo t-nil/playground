@@ -6,6 +6,7 @@ pub type Point2D = (f64, f64);
 pub type Point = Point2D;
 pub type Func2D = dyn Fn(Num) -> Num;
 pub type Func = Func2D;
+pub type Plot<'a, T> = (&'a str, Vec<T>);
 
 pub fn plot<'a, F: 'a + Fn(Num) -> Num>(
     f: F,
@@ -17,3 +18,4 @@ pub fn plot<'a, F: 'a + Fn(Num) -> Num>(
     arange(range, step).map(move |x| (x, f(x)))
 }
 // TODO div0 and such: return option
+// TODO implement own arange, because crate is really old

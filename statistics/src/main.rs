@@ -1,5 +1,9 @@
+#![feature(lazy_cell)]
+
 use std::{
+    cell::LazyCell,
     io::{self, Stdout},
+    sync::Mutex,
     time::Duration,
 };
 
@@ -21,6 +25,7 @@ use ratatui::{
 
 #[allow(unused)]
 use ratatui::backend::{CrosstermBackend, TermionBackend, TermwizBackend};
+use statistics::math::Plot;
 #[warn(unused)]
 use statistics::math::{self, Num, Point};
 
@@ -31,6 +36,43 @@ type BackendImpl = TermionBackend<Stdout>;
 const FPS: u16 = 15;
 const TICKRATE: u16 = 1000 / FPS;
 
+const MIN: Num = -5.0;
+const MAX: Num = 5.0;
+const STEP: Num = 0.1;
+
+static DATASETS: Mutex<LazyCell<Vec<(Plot<Point>, Dataset)>>> = Mutex::new(LazyCell::new(|| {
+    let fns: Vec<(&str, Box<math::Func>)> = vec![
+        ("x²", Box::new(|x| x * x)),
+        ("x² moved on x axis", Box::new(|x| (x - 3.0) * (x - 3.0))),
+        ("classical square root", Box::new(Num::sqrt)),
+    ];
+    // TODO bei ratatui beschweren, wie NaNs gerendert werden (see sqrt(-x))
+
+    let mut datasets = fns
+        .iter()
+        .map(|(name, f)| {
+            let plot = math::plot(f, MIN, MAX, STEP).collect_vec();
+            (
+                (*name, plot),
+                Dataset::default()
+                    .graph_type(GraphType::Line)
+                    .marker(symbols::Marker::Braille)
+                    .style(Style::default().fg(Color::Rgb(
+                        rand::random::<u8>(),
+                        rand::random::<u8>(),
+                        rand::random::<u8>(),
+                    )))
+                    .name(*name),
+            )
+        })
+        .collect_vec();
+    datasets
+        .iter_mut()
+        //.for_each(|tuple| tuple.1 = tuple.1.data(&tuple.0 .1));
+        .for_each(|((_, plot), dataset)| *dataset = dataset.clone().data(plot));
+    datasets
+}));
+
 /// This is a bare minimum example. There are many approaches to running an application loop, so
 /// this is not meant to be prescriptive. It is only meant to demonstrate the basic setup and
 /// teardown of a terminal application.
@@ -40,6 +82,9 @@ const TICKRATE: u16 = 1000 / FPS;
 /// events or update the application state. It just draws a greeting and exits when the user
 /// presses 'q'.
 fn main() -> Result<()> {
+    // calc datasets
+
+    // spin up term
     let mut terminal = setup_terminal().context("setup failed")?;
     run(&mut terminal).context("app loop failed")?;
     restore_terminal(&mut terminal).context("restore terminal failed")?;
@@ -57,35 +102,17 @@ fn render_app(frame: &mut ratatui::Frame<BackendImpl>) {
         .constraints([Constraint::Ratio(1, 2), Constraint::Ratio(1, 2)].as_ref())
         .split(size);
 
-    let (min, max, step): (Num, Num, Num) = (-10.0, 10.0, 0.1);
-    let (x_axis, y_axis) = (&[(min, 0.0), (max, 0.0)], &[(0.0, min), (0.0, max)]);
-    let fns: Vec<(&str, Box<math::Func>)> = vec![
-        ("x²", Box::new(|x| x * x)),
-        ("x² moved on x axis", Box::new(|x| (x - 3.0) * (x - 3.0))),
-        ("classical square root", Box::new(Num::sqrt)),
-    ];
-    // TODO bei ratatui beschweren, wie NaNs gerendert werden (see sqrt(-x))
-
-    let plots: Vec<(&str, Vec<Point>)> = fns
-        .iter()
-        .map(|(name, f)| (*name, math::plot(f, min, max, step).collect()))
-        .collect_vec();
-    let datasets = plots
-        .iter()
-        .map(|(name, points)| {
-            Dataset::default()
-                .graph_type(GraphType::Line)
-                .marker(symbols::Marker::Braille)
-                .style(Style::default().fg(Color::Rgb(
-                    rand::random::<u8>(),
-                    rand::random::<u8>(),
-                    rand::random::<u8>(),
-                )))
-                .name(*name)
-                .data(points)
-        })
-        .collect_vec(); //FIXME
-    let chart = make_chart(datasets, x_axis, y_axis);
+    let (x_axis, y_axis) = (&[(MIN, 0.0), (MAX, 0.0)], &[(0.0, MIN), (0.0, MAX)]);
+    let chart = make_chart(
+        DATASETS
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|((_, _), d)| d.clone())
+            .collect_vec(),
+        x_axis,
+        y_axis,
+    );
     frame.render_widget(chart, size);
 }
 
