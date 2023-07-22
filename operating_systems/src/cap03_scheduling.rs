@@ -1,0 +1,202 @@
+use core::time;
+use std::{
+    collections::VecDeque,
+    fmt::Debug,
+    ops::{Deref, DerefMut},
+    thread::current,
+    vec,
+};
+
+use itertools::Itertools;
+
+#[derive(Debug, Clone, Copy)]
+struct Process {
+    arrival: usize,
+    computation_time: usize,
+}
+
+impl Process {
+    fn new(arrival: usize, computation_time: usize) -> Self {
+        Process {
+            arrival,
+            computation_time,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+struct RealtimeProcess {
+    computation_time: usize,
+    period_length: usize,
+}
+
+#[derive(Debug, Default)]
+struct Schedule(Vec<Option<usize>>);
+impl Schedule {
+    fn new() -> Self {
+        Schedule(vec![])
+    }
+}
+
+impl Deref for Schedule {
+    type Target = Vec<Option<usize>>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Schedule {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+//trait Scheduler = impl Fn(Iterator<Item = Process>) -> Schedule;
+
+fn schedule(_ps: impl Iterator<Item = RealtimeProcess>) -> Schedule {
+    todo!();
+}
+
+fn round_robin(ps: impl Iterator<Item = Process>, quantum: usize) -> Schedule {
+    let mut ps = ps.enumerate().collect_vec();
+    ps.sort_by_cached_key(|p| p.1.arrival);
+
+    let mut queue: VecDeque<(usize, Process)> = VecDeque::new();
+    let mut round = 0;
+    let mut schedule: Schedule = Schedule::new();
+    while !(ps.is_empty() && queue.is_empty()) {
+        // take all arriving processes and put them into the queue
+        ps.drain_filter(|p| p.1.arrival <= round)
+            .collect_into(&mut queue);
+        assert!(round > schedule.len());
+        schedule.resize_with(round, || None);
+
+        // process task in front
+        let mut time_left = quantum;
+        while let Some(cur_proc) = queue.pop_front() {
+            if cur_proc.1.computation_time > time_left {
+                queue.push_back((
+                    cur_proc.0,
+                    Process {
+                        computation_time: cur_proc.1.computation_time - time_left,
+                        ..cur_proc.1
+                    },
+                ));
+                let upper = round;
+                let lower = upper - time_left;
+                (lower..upper).for_each(|i| schedule[i] = Some(cur_proc.0));
+                time_left = 0;
+            } else {
+                let upper = round;
+                let lower = upper - time_left;
+                (lower..upper).for_each(|i| schedule[i] = Some(cur_proc.0));
+                // just forget about the process
+                time_left -= cur_proc.1.computation_time;
+            }
+            if time_left == 0 {
+                break;
+            }
+        }
+
+        round += quantum;
+        if ps.is_empty() && queue.is_empty() {
+            break;
+        }
+    }
+
+    schedule
+}
+
+pub fn test_round_robin() {
+    let v = vec![
+        Process::new(0, 4),
+        Process::new(2, 3),
+        Process::new(4, 6),
+        Process::new(11, 3),
+        Process::new(12, 6),
+    ];
+    let quantum = 3;
+    let schedule = round_robin(v.clone().into_iter(), quantum);
+
+    schedule_to_text_diagram(&v, schedule);
+}
+
+fn rate_monotonic(ps: impl Iterator<Item = RealtimeProcess>) -> Schedule {
+    let mut ps = ps.enumerate().collect_vec();
+    ps.sort_by_cached_key(|p| p.1.computation_time);
+
+    let tmax = ps
+        .iter()
+        .map(|p| p.1.period_length)
+        .reduce(num_integer::lcm)
+        .expect(format!("Could not calculate LCM from {:?}", ps).as_str());
+
+    let mut cycles_done: Vec<usize> = vec![0; ps.len()];
+    let mut result: Schedule = Schedule(Vec::new());
+    'outer: for round in 0..tmax {
+        for i in 0..ps.len() {
+            if round % ps[i].1.period_length == 0 {
+                cycles_done[i] = ps[i].1.computation_time;
+            }
+        }
+
+        for i in 0..ps.len() {
+            if cycles_done[i] > 0 {
+                result.push(Some(ps[i].0));
+                cycles_done[i] -= 1;
+                continue 'outer;
+            }
+        }
+
+        result.push(None);
+    }
+
+    result
+}
+
+#[test]
+fn test_rate_monotonic() {
+    let processes = vec![
+        RealtimeProcess {
+            computation_time: 2,
+            period_length: 10,
+        },
+        RealtimeProcess {
+            computation_time: 1,
+            period_length: 5,
+        },
+        RealtimeProcess {
+            computation_time: 5,
+            period_length: 20,
+        },
+    ];
+
+    // TODO borrow, not move
+    let schedule = rate_monotonic(processes.clone().into_iter());
+    schedule_to_text_diagram(&processes, schedule)
+}
+
+fn schedule_to_text_diagram(ps: &[impl Debug], s: Schedule) {
+    println!("processes: {:#?}, schedule: {:#?}", ps, s);
+
+    ps.iter().enumerate().for_each(|(i, _)| {
+        // TODO maybe reduce to_owned
+        println!(
+            "Process {}: {}",
+            i,
+            s.iter()
+                .map(|x| if *x == Some(i) { "X" } else { " " })
+                .enumerate()
+                .map(|(i, c)| if i % 5 == 0 {
+                    "|".to_owned() + c
+                } else {
+                    c.to_owned()
+                })
+                .collect::<String>()
+        );
+    });
+    // print scale
+    let legend = format!("Round/5  : {}", "|     ".repeat(s.len() / 5));
+    println!("{}", "-".repeat(legend.len()));
+    println!("{}", legend);
+}
