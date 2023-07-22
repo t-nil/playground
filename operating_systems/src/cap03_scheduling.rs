@@ -63,45 +63,36 @@ fn round_robin(ps: impl Iterator<Item = Process>, quantum: usize) -> Schedule {
 
     let mut queue: VecDeque<(usize, Process)> = VecDeque::new();
     let mut round = 0;
+    let mut time_spent_on_cur = 0;
     let mut schedule: Schedule = Schedule::new();
     while !(ps.is_empty() && queue.is_empty()) {
         // take all arriving processes and put them into the queue
         ps.drain_filter(|p| p.1.arrival <= round)
             .collect_into(&mut queue);
-        assert!(round > schedule.len());
-        schedule.resize_with(round, || None);
+        assert!(round + 1 > schedule.len());
+        schedule.resize_with(round + 1, || None);
 
-        // process task in front
-        let mut time_left = quantum;
-        while let Some(cur_proc) = queue.pop_front() {
-            if cur_proc.1.computation_time > time_left {
-                queue.push_back((
-                    cur_proc.0,
-                    Process {
-                        computation_time: cur_proc.1.computation_time - time_left,
-                        ..cur_proc.1
-                    },
-                ));
-                let upper = round;
-                let lower = upper - time_left;
-                (lower..upper).for_each(|i| schedule[i] = Some(cur_proc.0));
-                time_left = 0;
+        if let Some(mut cur_proc) = queue.pop_front() {
+            assert!(cur_proc.1.computation_time > 0);
+
+            schedule[round] = Some(cur_proc.0);
+            cur_proc.1.computation_time -= 1;
+            time_spent_on_cur += 1;
+
+            if cur_proc.1.computation_time > 0 {
+                assert!(time_spent_on_cur <= quantum);
+                if time_spent_on_cur == quantum {
+                    queue.push_back(cur_proc);
+                    time_spent_on_cur = 0;
+                } else {
+                    queue.push_front(cur_proc);
+                }
             } else {
-                let upper = round;
-                let lower = upper - time_left;
-                (lower..upper).for_each(|i| schedule[i] = Some(cur_proc.0));
-                // just forget about the process
-                time_left -= cur_proc.1.computation_time;
-            }
-            if time_left == 0 {
-                break;
+                time_spent_on_cur = 0;
             }
         }
 
-        round += quantum;
-        if ps.is_empty() && queue.is_empty() {
-            break;
-        }
+        round += 1;
     }
 
     schedule
