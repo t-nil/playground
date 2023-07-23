@@ -147,7 +147,7 @@ pub fn test_round_robin() {
 
 fn rate_monotonic(ps: impl Iterator<Item = RealtimeProcess>) -> Schedule {
     let mut ps = ps.enumerate().collect_vec();
-    ps.sort_by_cached_key(|p| p.1.computation_time);
+    ps.sort_by_cached_key(|p| p.1.period_length);
 
     let tmax = ps
         .iter()
