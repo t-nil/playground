@@ -197,22 +197,54 @@ fn test_rate_monotonic() {
 
     // TODO borrow, not move
     let schedule = rate_monotonic(processes.clone().into_iter());
-    schedule_to_text_diagram(&processes, schedule)
+    schedule_to_text_diagram(&processes, schedule);
+
+    println!("\n### Altklausur SS15:");
+
+    let processes = vec![
+        RealtimeProcess {
+            computation_time: 1,
+            period_length: 6,
+        },
+        RealtimeProcess {
+            computation_time: 1,
+            period_length: 3,
+        },
+        RealtimeProcess {
+            computation_time: 3,
+            period_length: 18,
+        },
+        RealtimeProcess {
+            computation_time: 2,
+            period_length: 9,
+        },
+    ];
+
+    // TODO borrow, not move
+    let schedule = rate_monotonic(processes.clone().into_iter());
+    schedule_to_text_diagram(&processes, schedule);
 }
 
 fn schedule_to_text_diagram(ps: &[impl Debug], s: Schedule) {
-    println!("processes: {:#?}, schedule: {:#?}", ps, s);
+    //println!("processes: {:#?}, schedule: {:#?}", ps, s);
 
     ps.iter().enumerate().for_each(|(i, _)| {
         // TODO maybe reduce to_owned
+        let mut counter = 0;
         println!(
             "Process {}: {}",
             i,
             s.iter()
-                .map(|x| if *x == Some(i) { "X" } else { " " })
+                .map(|x| if *x == Some(i) {
+                    // TODO reset counter on period switch, like Stapperts Vorgabe
+                    counter += 1;
+                    (counter % 10).to_string()
+                } else {
+                    " ".to_owned()
+                })
                 .enumerate()
                 .map(|(i, c)| if i % 5 == 0 {
-                    "|".to_owned() + c
+                    "|".to_owned() + &c
                 } else {
                     c.to_owned()
                 })
