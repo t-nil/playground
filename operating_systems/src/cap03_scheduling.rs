@@ -1,9 +1,7 @@
-use core::time;
 use std::{
     collections::VecDeque,
     fmt::Debug,
     ops::{Deref, DerefMut},
-    thread::current,
     vec,
 };
 
@@ -51,11 +49,14 @@ impl DerefMut for Schedule {
     }
 }
 
-//trait Scheduler = impl Fn(Iterator<Item = Process>) -> Schedule;
+// trait Scheduler<T = Process> = Fn(impl Iterator<Item = T>) -> Schedule;
+// trait RealtimeScheduler = Scheduler<RealtimeProcess>;
 
-fn schedule(_ps: impl Iterator<Item = RealtimeProcess>) -> Schedule {
-    todo!();
-}
+// fn round_robin2(quantum: usize) -> impl Scheduler {
+//     |ps: |
+// }
+
+//trait Scheduler = impl Fn(Iterator<Item = Process>) -> Schedule;
 
 fn round_robin(ps: impl Iterator<Item = Process>, quantum: usize) -> Schedule {
     let mut ps = ps.enumerate().collect_vec();

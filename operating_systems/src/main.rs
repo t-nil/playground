@@ -2,8 +2,11 @@
 #![feature(iter_from_generator)]
 #![feature(iter_collect_into)]
 #![feature(drain_filter)]
+#![feature(trait_alias)]
+#![feature(unboxed_closures)]
+#![feature(fn_traits)]
 
-use std::{collections::HashMap, iter};
+use std::iter;
 
 use itertools::Itertools;
 
