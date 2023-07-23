@@ -8,13 +8,13 @@ use std::{
 use itertools::Itertools;
 
 #[derive(Debug, Clone, Copy)]
-struct Process {
+pub struct Process {
     arrival: usize,
     computation_time: usize,
 }
 
 impl Process {
-    fn new(arrival: usize, computation_time: usize) -> Self {
+    pub fn new(arrival: usize, computation_time: usize) -> Self {
         Process {
             arrival,
             computation_time,
@@ -23,15 +23,15 @@ impl Process {
 }
 
 #[derive(Debug, Clone, Copy)]
-struct RealtimeProcess {
+pub struct RealtimeProcess {
     computation_time: usize,
     period_length: usize,
 }
 
 #[derive(Debug, Default)]
-struct Schedule(Vec<Option<usize>>);
+pub struct Schedule(Vec<Option<usize>>);
 impl Schedule {
-    fn new() -> Self {
+    pub fn new() -> Self {
         Schedule(vec![])
     }
 }
@@ -58,7 +58,7 @@ impl DerefMut for Schedule {
 
 //trait Scheduler = impl Fn(Iterator<Item = Process>) -> Schedule;
 
-fn round_robin(ps: impl Iterator<Item = Process>, quantum: usize) -> Schedule {
+pub fn round_robin(ps: impl Iterator<Item = Process>, quantum: usize) -> Schedule {
     let mut ps = ps.enumerate().collect_vec();
     ps.sort_by_cached_key(|p| p.1.arrival);
 
@@ -145,7 +145,7 @@ pub fn test_round_robin() {
     schedule_to_text_diagram(&v, schedule);
 }
 
-fn rate_monotonic(ps: impl Iterator<Item = RealtimeProcess>) -> Schedule {
+pub fn rate_monotonic(ps: impl Iterator<Item = RealtimeProcess>) -> Schedule {
     let mut ps = ps.enumerate().collect_vec();
     ps.sort_by_cached_key(|p| p.1.period_length);
 
@@ -227,8 +227,8 @@ pub fn test_rate_monotonic() {
     schedule_to_text_diagram(&processes, schedule);
 }
 
-fn schedule_to_text_diagram(ps: &[impl Debug], s: Schedule) {
-    //println!("processes: {:#?}, schedule: {:#?}", ps, s);
+pub fn schedule_to_text_diagram(ps: &[impl Debug], s: Schedule) {
+    println!("processes: {:#?}, schedule: {:#?}", ps, s);
 
     ps.iter().enumerate().for_each(|(i, _)| {
         // TODO maybe reduce to_owned

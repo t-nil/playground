@@ -6,9 +6,12 @@
 #![feature(unboxed_closures)]
 #![feature(fn_traits)]
 
+use std::fmt::Debug;
 use std::iter;
 
 use itertools::Itertools;
+
+use crate::cap03_scheduling::*;
 
 pub mod cap03_scheduling;
 
@@ -20,13 +23,100 @@ fn main() {
 
 struct Aufgabe {
     which: String,
-    algo: Box<dyn Fn() -> String>,
-    solution: String,
+    algo: Box<dyn Fn() -> Box<dyn AufgabeData>>,
+    solution: Box<dyn AufgabeData>,
+}
+trait AufgabeData: Debug {
+    fn eq(&self, other: &Self) -> bool
+    where
+        Self: Sized;
+}
+
+impl AufgabeData for String {
+    fn eq(&self, other: &Self) -> bool
+    where
+        Self: Sized,
+    {
+        PartialEq::eq(&self, &other)
+    }
+}
+
+impl PartialEq<Box<dyn AufgabeData>> for Box<dyn AufgabeData> {
+    fn eq(&self, other: &Box<dyn AufgabeData>) -> bool {
+        AufgabeData::eq(self, other)
+    }
+}
+
+trait Aufgabe_t {
+    fn get_which(&self) -> &str;
+    fn get_algo(&self) -> &Box<dyn Fn() -> Box<dyn AufgabeData>>;
+    fn get_solution(&self) -> &Box<dyn AufgabeData>;
+}
+
+impl Aufgabe_t for Aufgabe {
+    fn get_which(&self) -> &str {
+        &self.which
+    }
+
+    fn get_algo(&self) -> &Box<dyn Fn() -> Box<dyn AufgabeData>> {
+        &self.algo
+    }
+
+    fn get_solution(&self) -> &Box<dyn AufgabeData> {
+        &self.solution
+    }
+}
+
+fn klausur_Stappert_SS15() -> Vec<Box<dyn Aufgabe_t>> {
+    vec![Box::new(Aufgabe {
+        which: "4.1".to_owned(),
+        algo: Box::new(|| {
+            Box::new(format!(
+                "{:?}",
+                round_robin(
+                    vec![
+                        Process::new(1, 6),
+                        Process::new(4, 2),
+                        Process::new(2, 4),
+                        Process::new(9, 3),
+                        Process::new(8, 4),
+                    ]
+                    .into_iter(),
+                    3,
+                )
+            ))
+        }),
+        solution: Box::new(
+            "Schedule(
+            [
+                None,
+                Some(
+                    0,
+                ),
+                Some(
+                    0,
+                ),
+                Some(
+                    0,
+                ),
+                Some(
+                    2,
+                ),
+                Some(
+                    2,
+                ),
+                Some(
+                    2,
+                ),
+                Some("
+                .to_owned(),
+        ),
+    })]
 }
 
 fn probeklausur() {
-    let mut questions: Vec<Aufgabe> = Vec::new();
-    questions.push(Aufgabe {
+    let mut questions: Vec<Box<dyn Aufgabe_t>> = Vec::new();
+    questions.push(Box::new(Aufgabe {
         which: "3.2".to_owned(),
         algo: Box::new(|| {
             // gegeben
@@ -52,17 +142,17 @@ fn probeklausur() {
                 }
             }
 
-            format!(
+            Box::new(format!(
                 "file size: {}KiB, actual space used: {}KiB, {} used blocks: {:?}",
                 file_size as f64 / 1024.0,
                 used_space as f64 / 1024.0,
                 used_blocks.len(),
                 used_blocks
-            )
+            ))
         }),
-        solution: "file size: 33KiB, actual space used: 36KiB, 9 used blocks: [302, 304, 306, 308, 310, 312, 314, 316, 318]".to_owned(),
-    });
-    questions.push(Aufgabe {
+        solution: Box::new("file size: 33KiB, actual space used: 36KiB, 9 used blocks: [302, 304, 306, 308, 310, 312, 314, 316, 318]".to_owned()),
+    }));
+    questions.push(Box::new(Aufgabe {
         which: "4".to_owned(),
         algo: Box::new(|| {
             // gegeben
@@ -170,7 +260,7 @@ fn probeklausur() {
             })
             .collect_vec();
 
-            format!(
+            Box::new(format!(
                 "FCFS: {} {:?}, SSF: {} {:?}, Aufzug: {} {:?}",
                 jumps_fcfs.iter().sum::<usize>(),
                 jumps_fcfs,
@@ -178,20 +268,15 @@ fn probeklausur() {
                 jumps_ssf,
                 jumps_aufzug.iter().sum::<usize>(),
                 jumps_aufzug
-            )
+            ))
         }),
-        solution: "FCFS: 145 [9, 36, 19, 15, 25, 3, 28, 10], SSF: 59 [1, 3, 7, 17, 15, 4, 2, 10], Aufzug: 87 [1, 7, 15, 4, 2, 10, 41, 7]".to_owned(),
-});
-    questions.iter().for_each(
-        |Aufgabe {
-             which,
-             algo,
-             solution,
-         }| {
-            println!("### Question number {}", which);
-            let result = algo();
-            println!("{}", result);
-            assert_eq!(result, *solution);
-        },
-    );
+        solution: Box::new("FCFS: 145 [9, 36, 19, 15, 25, 3, 28, 10], SSF: 59 [1, 3, 7, 17, 15, 4, 2, 10], Aufzug: 87 [1, 7, 15, 4, 2, 10, 41, 7]".to_owned()),
+}));
+    questions.iter().for_each(|b| {
+        let (which, algo, solution) = (b.get_which(), b.get_algo(), b.get_solution());
+        println!("### Question number {}", which);
+        let result = algo();
+        println!("{:?}", result);
+        assert_eq!(&result, solution);
+    });
 }
