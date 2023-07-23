@@ -15,6 +15,7 @@ pub mod cap03_scheduling;
 fn main() {
     probeklausur();
     cap03_scheduling::test_round_robin();
+    cap03_scheduling::test_rate_monotonic();
 }
 
 fn probeklausur() {

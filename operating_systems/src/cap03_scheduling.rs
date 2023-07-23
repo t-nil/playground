@@ -178,8 +178,10 @@ fn rate_monotonic(ps: impl Iterator<Item = RealtimeProcess>) -> Schedule {
     result
 }
 
-#[test]
-fn test_rate_monotonic() {
+pub fn test_rate_monotonic() {
+    println!("\n## RATE MONOTONIC\n");
+
+    println!("\n### Altklausur SS15:");
     let processes = vec![
         RealtimeProcess {
             computation_time: 2,
