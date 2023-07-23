@@ -78,7 +78,7 @@ fn round_robin(ps: impl Iterator<Item = Process>, quantum: usize) -> Schedule {
 
             // pulled the quantum check to the front, now needlessly inserting once front and pulling to back immediately after
             // but now newly arriving tasks get correctly scheduled before cycled tasks
-            if (time_spent_on_cur >= quantum) {
+            if time_spent_on_cur >= quantum {
                 queue.push_back(cur_proc);
                 cur_proc = queue.pop_front().expect("I just pushed sth, didn't I");
                 time_spent_on_cur = 0;
@@ -153,7 +153,7 @@ fn rate_monotonic(ps: impl Iterator<Item = RealtimeProcess>) -> Schedule {
         .iter()
         .map(|p| p.1.period_length)
         .reduce(num_integer::lcm)
-        .expect(format!("Could not calculate LCM from {:?}", ps).as_str());
+        .unwrap_or_else(|| panic!("Could not calculate LCM from {:?}", ps));
 
     let mut cycles_done: Vec<usize> = vec![0; ps.len()];
     let mut result: Schedule = Schedule(Vec::new());
@@ -245,11 +245,7 @@ fn schedule_to_text_diagram(ps: &[impl Debug], s: Schedule) {
                     " ".to_owned()
                 })
                 .enumerate()
-                .map(|(i, c)| if i % 5 == 0 {
-                    "|".to_owned() + &c
-                } else {
-                    c.to_owned()
-                })
+                .map(|(i, c)| if i % 5 == 0 { "|".to_owned() + &c } else { c })
                 .collect::<String>()
         );
     });

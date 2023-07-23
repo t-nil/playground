@@ -18,16 +18,17 @@ fn main() {
     cap03_scheduling::test_rate_monotonic();
 }
 
+struct Aufgabe {
+    which: String,
+    algo: Box<dyn Fn() -> String>,
+    solution: String,
+}
+
 fn probeklausur() {
-    let mut questions: Vec<(
-        &str,
-        Box<dyn Fn() -> String>,
-        //Box<dyn Fn(dyn Fn() -> String) -> ()>,
-        String,
-    )> = Vec::new();
-    questions.push((
-        "3.2",
-        Box::new(|| {
+    let mut questions: Vec<Aufgabe> = Vec::new();
+    questions.push(Aufgabe {
+        which: "3.2".to_owned(),
+        algo: Box::new(|| {
             // gegeben
             let block_size = 2_u64.pow(12);
             let total_used_blocks = iter::from_generator(|| {
@@ -59,11 +60,11 @@ fn probeklausur() {
                 used_blocks
             )
         }),
-        "file size: 33KiB, actual space used: 36KiB, 9 used blocks: [302, 304, 306, 308, 310, 312, 314, 316, 318]".to_owned(),
-    ));
-    questions.push((
-        "4",
-        Box::new(|| {
+        solution: "file size: 33KiB, actual space used: 36KiB, 9 used blocks: [302, 304, 306, 308, 310, 312, 314, 316, 318]".to_owned(),
+    });
+    questions.push(Aufgabe {
+        which: "4".to_owned(),
+        algo: Box::new(|| {
             // gegeben
             let cylinders: Vec<usize> = vec![11, 2, 38, 19, 34, 9, 12, 40, 50];
 
@@ -103,7 +104,7 @@ fn probeklausur() {
 
             // Aufzug
 
-            let mut cyls_tmp = cylinders.clone();
+            let mut cyls_tmp = cylinders;
             cyls_tmp.sort();
             let mut last_diff = (2_usize, 0);
 
@@ -134,13 +135,13 @@ fn probeklausur() {
                     Down => new_diff.clone().take(n).collect_vec(),
                 };
                 let mut considered = make_considered(direction);
-                if considered.len() == 0 {
+                if considered.is_empty() {
                     direction = match direction {
                         Down => Up,
                         Up => Down,
                     };
                     considered = make_considered(direction);
-                    if considered.len() == 0 {
+                    if considered.is_empty() {
                         // both are empty -> we have no more elems and are finished
                         // probably superfluous but an extra check nonetheless
                         return;
@@ -179,12 +180,18 @@ fn probeklausur() {
                 jumps_aufzug
             )
         }),
-        "FCFS: 145 [9, 36, 19, 15, 25, 3, 28, 10], SSF: 59 [1, 3, 7, 17, 15, 4, 2, 10], Aufzug: 87 [1, 7, 15, 4, 2, 10, 41, 7]".to_owned(),
-    ));
-    questions.iter().for_each(|(number, fun, verify)| {
-        println!("### Question number {}", number);
-        let result = fun();
-        println!("{}", result);
-        assert_eq!(result, *verify);
-    });
+        solution: "FCFS: 145 [9, 36, 19, 15, 25, 3, 28, 10], SSF: 59 [1, 3, 7, 17, 15, 4, 2, 10], Aufzug: 87 [1, 7, 15, 4, 2, 10, 41, 7]".to_owned(),
+});
+    questions.iter().for_each(
+        |Aufgabe {
+             which,
+             algo,
+             solution,
+         }| {
+            println!("### Question number {}", which);
+            let result = algo();
+            println!("{}", result);
+            assert_eq!(result, *solution);
+        },
+    );
 }
