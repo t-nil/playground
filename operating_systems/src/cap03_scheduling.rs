@@ -75,18 +75,20 @@ fn round_robin(ps: impl Iterator<Item = Process>, quantum: usize) -> Schedule {
         if let Some(mut cur_proc) = queue.pop_front() {
             assert!(cur_proc.1.computation_time > 0);
 
+            // pulled the quantum check to the front, now needlessly inserting once front and pulling to back immediately after
+            // but now newly arriving tasks get correctly scheduled before cycled tasks
+            if (time_spent_on_cur >= quantum) {
+                queue.push_back(cur_proc);
+                cur_proc = queue.pop_front().expect("I just pushed sth, didn't I");
+                time_spent_on_cur = 0;
+            }
+
             schedule[round] = Some(cur_proc.0);
             cur_proc.1.computation_time -= 1;
             time_spent_on_cur += 1;
 
             if cur_proc.1.computation_time > 0 {
-                assert!(time_spent_on_cur <= quantum);
-                if time_spent_on_cur == quantum {
-                    queue.push_back(cur_proc);
-                    time_spent_on_cur = 0;
-                } else {
-                    queue.push_front(cur_proc);
-                }
+                queue.push_front(cur_proc);
             } else {
                 time_spent_on_cur = 0;
             }
