@@ -102,6 +102,10 @@ fn round_robin(ps: impl Iterator<Item = Process>, quantum: usize) -> Schedule {
 }
 
 pub fn test_round_robin() {
+    println!("\n ## ROUND ROBIN");
+
+    println!("\n### irgendwas\n");
+
     let v = vec![
         Process::new(0, 4),
         Process::new(2, 3),
@@ -110,8 +114,34 @@ pub fn test_round_robin() {
         Process::new(12, 6),
     ];
     let quantum = 3;
-    let schedule = round_robin(v.clone().into_iter(), quantum);
 
+    let schedule = round_robin(v.clone().into_iter(), quantum);
+    schedule_to_text_diagram(&v, schedule);
+
+    println!("\n### Altklausur SS15\n");
+
+    let v = vec![
+        Process::new(1, 6),
+        Process::new(4, 2),
+        Process::new(2, 4),
+        Process::new(9, 3),
+        Process::new(8, 4),
+    ];
+    let quantum = 3;
+    let schedule = round_robin(v.clone().into_iter(), quantum);
+    schedule_to_text_diagram(&v, schedule);
+
+    println!("\n### Altklausur SS18\n");
+
+    let v = vec![
+        Process::new(9, 3),
+        Process::new(8, 4),
+        Process::new(4, 4),
+        Process::new(1, 6),
+        Process::new(2, 5),
+    ];
+    let quantum = 3;
+    let schedule = round_robin(v.clone().into_iter(), quantum);
     schedule_to_text_diagram(&v, schedule);
 }
 
