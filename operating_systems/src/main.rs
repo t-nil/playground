@@ -5,118 +5,143 @@
 #![feature(trait_alias)]
 #![feature(unboxed_closures)]
 #![feature(fn_traits)]
+#![feature(associated_type_bounds)]
 
 use std::fmt::Debug;
-use std::iter;
+use std::{iter, vec};
 
+use dyn_clone::DynClone;
 use itertools::Itertools;
 
 use crate::cap03_scheduling::*;
 
 pub mod cap03_scheduling;
 
+macro_rules! funs_to_tuple {
+    ($($f:ident),+) => {
+        {vec![
+            $((stringify!($f), $f()),)*
+        ]}
+    };
+}
 fn main() {
-    probeklausur();
+    let all = funs_to_tuple![klausur_stappert_ss23_probeklausur, klausur_stappert_ss15];
+    for (name, problems) in all {
+        println!("\n# {}\n\n", name);
+        problems.iter().for_each(Problem::eval);
+    }
     cap03_scheduling::test_round_robin();
     cap03_scheduling::test_rate_monotonic();
 }
 
-struct Aufgabe {
+// https://github.com/dtolnay/dyn-clone
+// https://stackoverflow.com/questions/30353462/how-to-clone-a-struct-storing-a-boxed-trait-object
+trait ProblemData: Debug + DynClone {}
+impl<T: Debug + Clone> ProblemData for T {}
+
+trait SolutionGenerator: DynClone + (Fn() -> Box<dyn ProblemData>) {}
+impl<T: (Fn() -> Box<dyn ProblemData>) + Clone> SolutionGenerator for T {}
+
+dyn_clone::clone_trait_object!(ProblemData);
+dyn_clone::clone_trait_object!(SolutionGenerator);
+
+#[derive(Clone)]
+struct Problem {
     which: String,
-    algo: Box<dyn Fn() -> Box<dyn AufgabeData>>,
-    solution: Box<dyn AufgabeData>,
-}
-trait AufgabeData: Debug {
-    fn eq(&self, other: &Self) -> bool
-    where
-        Self: Sized;
+    algo: Box<dyn SolutionGenerator>,
+    solution: Box<dyn ProblemData>,
 }
 
-impl AufgabeData for String {
-    fn eq(&self, other: &Self) -> bool
-    where
-        Self: Sized,
-    {
-        PartialEq::eq(&self, &other)
-    }
+// trait Aufgabe_t {
+//     fn get_which(&self) -> &str;
+//     fn get_algo(&self) -> &Box<dyn Fn() -> Box<dyn AufgabeData>>;
+//     fn get_solution(&self) -> &Box<dyn AufgabeData>;
+// }
+
+// impl Aufgabe_t for Aufgabe {
+//     fn get_which(&self) -> &str {
+//         &self.which
+//     }
+
+//     fn get_algo(&self) -> &Box<dyn Fn() -> Box<dyn AufgabeData>> {
+//         &self.algo
+//     }
+
+//     fn get_solution(&self) -> &Box<dyn AufgabeData> {
+//         &self.solution
+//     }
+// }
+
+fn klausur_stappert_ss15() -> Vec<Problem> {
+    vec![{
+        let input = vec![
+            Process::new(1, 6),
+            Process::new(4, 2),
+            Process::new(2, 4),
+            Process::new(9, 3),
+            Process::new(8, 4),
+        ];
+        Problem {
+            which: "4.1".to_owned(),
+            algo: Box::new(|| {
+                Box::new((
+                    (&input).clone(),
+                    round_robin((&input).clone().into_iter(), 3),
+                )) as Box<dyn ProblemData>
+            }),
+            solution: Box::new((
+                vec![
+                    Process {
+                        arrival: 1,
+                        computation_time: 6,
+                    },
+                    Process {
+                        arrival: 4,
+                        computation_time: 2,
+                    },
+                    Process {
+                        arrival: 2,
+                        computation_time: 4,
+                    },
+                    Process {
+                        arrival: 9,
+                        computation_time: 3,
+                    },
+                    Process {
+                        arrival: 8,
+                        computation_time: 4,
+                    },
+                ],
+                Schedule(vec![
+                    None,
+                    Some(0),
+                    Some(0),
+                    Some(0),
+                    Some(2),
+                    Some(2),
+                    Some(2),
+                    Some(1),
+                    Some(1),
+                    Some(0),
+                    Some(0),
+                    Some(0),
+                    Some(2),
+                    Some(4),
+                    Some(4),
+                    Some(4),
+                    Some(3),
+                    Some(3),
+                    Some(3),
+                    Some(4),
+                ]),
+            )),
+        }
+    }]
 }
 
-impl PartialEq<Box<dyn AufgabeData>> for Box<dyn AufgabeData> {
-    fn eq(&self, other: &Box<dyn AufgabeData>) -> bool {
-        AufgabeData::eq(self, other)
-    }
-}
-
-trait Aufgabe_t {
-    fn get_which(&self) -> &str;
-    fn get_algo(&self) -> &Box<dyn Fn() -> Box<dyn AufgabeData>>;
-    fn get_solution(&self) -> &Box<dyn AufgabeData>;
-}
-
-impl Aufgabe_t for Aufgabe {
-    fn get_which(&self) -> &str {
-        &self.which
-    }
-
-    fn get_algo(&self) -> &Box<dyn Fn() -> Box<dyn AufgabeData>> {
-        &self.algo
-    }
-
-    fn get_solution(&self) -> &Box<dyn AufgabeData> {
-        &self.solution
-    }
-}
-
-fn klausur_Stappert_SS15() -> Vec<Box<dyn Aufgabe_t>> {
-    vec![Box::new(Aufgabe {
-        which: "4.1".to_owned(),
-        algo: Box::new(|| {
-            Box::new(format!(
-                "{:?}",
-                round_robin(
-                    vec![
-                        Process::new(1, 6),
-                        Process::new(4, 2),
-                        Process::new(2, 4),
-                        Process::new(9, 3),
-                        Process::new(8, 4),
-                    ]
-                    .into_iter(),
-                    3,
-                )
-            ))
-        }),
-        solution: Box::new(
-            "Schedule(
-            [
-                None,
-                Some(
-                    0,
-                ),
-                Some(
-                    0,
-                ),
-                Some(
-                    0,
-                ),
-                Some(
-                    2,
-                ),
-                Some(
-                    2,
-                ),
-                Some(
-                    2,
-                ),
-                Some("
-                .to_owned(),
-        ),
-    })]
-}
-
-fn probeklausur() {
-    let mut questions: Vec<Box<dyn Aufgabe_t>> = Vec::new();
-    questions.push(Box::new(Aufgabe {
+fn klausur_stappert_ss23_probeklausur() -> Vec<Problem> {
+    let mut questions: Vec<Problem> = Vec::new();
+    questions.push(Problem {
         which: "3.2".to_owned(),
         algo: Box::new(|| {
             // gegeben
@@ -148,11 +173,11 @@ fn probeklausur() {
                 used_space as f64 / 1024.0,
                 used_blocks.len(),
                 used_blocks
-            ))
+            )) as Box<dyn ProblemData>
         }),
         solution: Box::new("file size: 33KiB, actual space used: 36KiB, 9 used blocks: [302, 304, 306, 308, 310, 312, 314, 316, 318]".to_owned()),
-    }));
-    questions.push(Box::new(Aufgabe {
+    });
+    questions.push(Problem {
         which: "4".to_owned(),
         algo: Box::new(|| {
             // gegeben
@@ -268,15 +293,23 @@ fn probeklausur() {
                 jumps_ssf,
                 jumps_aufzug.iter().sum::<usize>(),
                 jumps_aufzug
-            ))
+            )) as Box<dyn ProblemData>
         }),
         solution: Box::new("FCFS: 145 [9, 36, 19, 15, 25, 3, 28, 10], SSF: 59 [1, 3, 7, 17, 15, 4, 2, 10], Aufzug: 87 [1, 7, 15, 4, 2, 10, 41, 7]".to_owned()),
-}));
-    questions.iter().for_each(|b| {
-        let (which, algo, solution) = (b.get_which(), b.get_algo(), b.get_solution());
+    });
+    questions
+}
+
+impl Problem {
+    fn eval(&self) -> () {
+        let Problem {
+            which,
+            algo,
+            solution,
+        } = self;
         println!("### Question number {}", which);
         let result = algo();
         println!("{:?}", result);
-        assert_eq!(&result, solution);
-    });
+        assert_eq!(format!("{:?}", result), format!("{:?}", solution));
+    }
 }

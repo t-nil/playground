@@ -9,8 +9,8 @@ use itertools::Itertools;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Process {
-    arrival: usize,
-    computation_time: usize,
+    pub arrival: usize,
+    pub computation_time: usize,
 }
 
 impl Process {
@@ -28,8 +28,8 @@ pub struct RealtimeProcess {
     period_length: usize,
 }
 
-#[derive(Debug, Default)]
-pub struct Schedule(Vec<Option<usize>>);
+#[derive(Clone, Debug, Default)]
+pub struct Schedule(pub Vec<Option<usize>>);
 impl Schedule {
     pub fn new() -> Self {
         Schedule(vec![])
